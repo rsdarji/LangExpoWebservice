@@ -171,7 +171,7 @@ public class LangExpoWS {
                 con = DriverManager.getConnection("jdbc:oracle:thin:@144.217.163.57:1521:XE", "a19madteam5", "anypw");
                 stm = con.createStatement();
                 String sql = "Select LANGUAGE_ID, LANGUAGE_NAME, Image.Image " +
-                    "from Language_ Inner join IMAGE ON Language_.FLAG_ID = Image.IMAGE_ID";
+                    "from Language_ Inner join IMAGE ON Language_.FLAG_ID = Image.IMAGE_ID order by MODIFIED_DATE DESC";
                 
                 rs = stm.executeQuery(sql);
                 
@@ -447,7 +447,7 @@ public class LangExpoWS {
                 Class.forName("oracle.jdbc.OracleDriver");
                 con = DriverManager.getConnection("jdbc:oracle:thin:@144.217.163.57:1521:XE", "a19madteam5", "anypw");
                 stm = con.createStatement();
-                String sql = "select * from COURSE_LEVEL";
+                String sql = "select * from COURSE_LEVEL order by MODIFIED_DATE DESC";
                 
                 rs = stm.executeQuery(sql);
                 
@@ -630,7 +630,7 @@ public class LangExpoWS {
                 Class.forName("oracle.jdbc.OracleDriver");
                 con = DriverManager.getConnection("jdbc:oracle:thin:@144.217.163.57:1521:XE", "a19madteam5", "anypw");
                 stm = con.createStatement();
-                String sql = "select * from QUESTION_TYPE";
+                String sql = "select * from QUESTION_TYPE order by MODIFIED_DATE DESC";
                 
                 rs = stm.executeQuery(sql);
                 
@@ -814,6 +814,180 @@ public class LangExpoWS {
 
     }
     
+    @GET
+    @Path("featchAllGoal")
+    @Produces("application/json")
+    //@Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    public String featchAllGoal() throws SQLException, JSONException{
+        JSONObject object = new JSONObject();
+        
+        
+        Statement stm = null;
+        Connection con = null;
+        ResultSet rs = null;
+           
+            try{
+                Class.forName("oracle.jdbc.OracleDriver");
+                con = DriverManager.getConnection("jdbc:oracle:thin:@144.217.163.57:1521:XE", "a19madteam5", "anypw");
+                stm = con.createStatement();
+                String sql = "select * from GOAL_MASTER order by MODIFIED_DATE DESC";
+                
+                rs = stm.executeQuery(sql);
+                
+                if(rs.next()==true){
+                    object.accumulate("status", "ok");
+                    object.accumulate("message","Featched up successfully.");
+                    JSONArray goals = new JSONArray();
+                    do {
+                        JSONObject goal = new JSONObject();
+                        goal.accumulate("goalId", rs.getLong("GOAL_MASTER_ID"));
+                        goal.accumulate("goalName", rs.getString("GOAL_NAME"));
+                        
+                        goals.put(goal);
+                    } while (rs.next());
+                    object.accumulate("goals", goals);
+                }else{
+                    object.accumulate("status", "error");
+                    object.accumulate("message", "Please try again.");
+                }
+               
+                rs.close();
+                
+            }catch(SQLException e){
+                e.printStackTrace();
+                object.accumulate("status", "error");
+                object.accumulate("message", "Please try again.");
+            }catch(ClassNotFoundException e){
+                e.printStackTrace();
+            }finally{
+                stm.close();
+                con.close();
+            }
+        
+        return object.toString();
+    }
+    
+    @POST
+    @Path("addUpdateGoal")
+    @Produces("application/json")
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    public String addUpdateGoal(@FormParam("goalId") long goalId, @FormParam("goalNameValue") String goalName) throws SQLException, JSONException {
+        
+        JSONObject addUpdateGoal = new JSONObject();
+        Statement stmt = null;
+        Connection con = null;
+        ResultSet rs = null;
+        int goalCount = 0;
+        int duplicateCount = 0;
+        
+        System.out.println("goalId: "+goalId+" \n goalName: "+goalName+"\n");
+        
+        try {
+            Class.forName("oracle.jdbc.OracleDriver");
+            con = DriverManager.getConnection("jdbc:oracle:thin:@144.217.163.57:1521:XE", "A19MADTEAM5", "anypw");
+            stmt = con.createStatement();
+            String sql = "SELECT * FROM GOAL_MASTER WHERE GOAL_NAME = '"+goalName+"'";
+            duplicateCount = stmt.executeUpdate(sql);
+            //DUPLICAT
+            if(duplicateCount==0){
+                //update
+                if(goalId!=0){
+
+                    sql = "UPDATE GOAL_MASTER SET GOAL_NAME = '"+goalName+"', MODIFIED_DATE=CURRENT_TIMESTAMP WHERE GOAL_MASTER_ID = "+goalId;
+                    goalCount = stmt.executeUpdate(sql);
+
+                    if(goalCount==1){
+                        addUpdateGoal.accumulate("status", "ok");
+                        addUpdateGoal.accumulate("message","Goal Master has been updated successfully.");
+                    }
+
+                } else{ //add
+                    long goalPK = getPrimaryKeyforTable("GOAL_MASTER", "GOAL_MASTER_ID");
+
+
+                    sql = "INSERT INTO A19MADTEAM5.GOAL_MASTER (GOAL_MASTER_ID, GOAL_NAME,"
+                            + " CREATED_DATE, MODIFIED_DATE) VALUES ("+goalPK+", '"+goalName+"', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)";
+                    goalCount = stmt.executeUpdate(sql);
+
+                    if (goalCount==1) {
+                        addUpdateGoal.accumulate("status", "ok");
+                        addUpdateGoal.accumulate("message","Goal has been added successfully.");
+                    }
+                    else{
+                        addUpdateGoal.accumulate("status", "error");
+                        addUpdateGoal.accumulate("message", "Goal has not been added.");
+                    }
+                }
+            }else{
+                addUpdateGoal.accumulate("status", "error");
+                addUpdateGoal.accumulate("code", "LE_D_411");
+                addUpdateGoal.accumulate("message", "Please check details and try again.");
+            }
+        }catch(SQLException e){
+            e.printStackTrace();
+            addUpdateGoal.accumulate("status", "error");
+            addUpdateGoal.accumulate("message", "Please check details and try again.");
+        }catch(ClassNotFoundException e){
+            Logger.getLogger(LangExpoWS.class.getName()).log(Level.SEVERE, null, e);
+        }finally{
+            stmt.close();
+            con.close();
+        }
+        
+        return addUpdateGoal.toString();
+
+    }
+    
+    @POST
+    @Path("deleteGoal")
+    @Produces("application/json")
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    public String deleteGoal(@FormParam("goalId") long goalId) throws SQLException, JSONException {
+        
+        JSONObject deleteGoal = new JSONObject();
+        Statement stmt = null;
+        Connection con = null;
+        ResultSet rs = null;
+        int goalCount = 0;
+        
+        try {
+            Class.forName("oracle.jdbc.OracleDriver");
+            con = DriverManager.getConnection("jdbc:oracle:thin:@144.217.163.57:1521:XE", "A19MADTEAM5", "anypw");
+            stmt = con.createStatement();
+            
+            //update
+            if(goalId!=0){
+                try{
+                    String sql = "DELETE FROM GOAL_MASTER WHERE GOAL_MASTER_ID="+goalId;
+                    goalCount = stmt.executeUpdate(sql);
+
+                    if(goalCount==1){
+                        deleteGoal.accumulate("status", "ok");
+                        deleteGoal.accumulate("message","Goal has been deleted successfully.");
+                    }
+                }catch(SQLIntegrityConstraintViolationException e){
+                    deleteGoal.accumulate("status", "error");
+                    deleteGoal.accumulate("message", "Goal is in use, you can't delete it.");
+                }
+            } else{ //add
+                deleteGoal.accumulate("status", "error");
+                deleteGoal.accumulate("message", "You have not selected Goal to delete.");
+            }
+
+        }catch(SQLException e){
+            e.printStackTrace();
+            deleteGoal.accumulate("status", "error");
+            deleteGoal.accumulate("message", "Please check details and try again.");
+        }catch(ClassNotFoundException e){
+            Logger.getLogger(LangExpoWS.class.getName()).log(Level.SEVERE, null, e);
+        }finally{
+            stmt.close();
+            con.close();
+        }
+        
+        return deleteGoal.toString();
+
+    }
     
 }        
             
