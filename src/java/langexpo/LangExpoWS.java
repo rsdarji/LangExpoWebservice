@@ -5,6 +5,9 @@
  */
 package langexpo;
 
+import java.io.UnsupportedEncodingException;
+import java.sql.Blob;
+import java.sql.Clob;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -153,7 +156,6 @@ public class LangExpoWS {
     }
     
     
-    
     @GET
     @Path("featchAllLanguages")
     @Produces("application/json")
@@ -170,8 +172,13 @@ public class LangExpoWS {
                 Class.forName("oracle.jdbc.OracleDriver");
                 con = DriverManager.getConnection("jdbc:oracle:thin:@144.217.163.57:1521:XE", "a19madteam5", "anypw");
                 stm = con.createStatement();
+                
                 String sql = "Select LANGUAGE_ID, LANGUAGE_NAME, Image.Image " +
-                    "from Language_ Inner join IMAGE ON Language_.FLAG_ID = Image.IMAGE_ID order by MODIFIED_DATE DESC";
+                    "from Language_ Inner join IMAGE ON Language_.FLAG_ID = Image.IMAGE_ID";
+                
+                
+                
+                
                 
                 rs = stm.executeQuery(sql);
                 
@@ -225,6 +232,7 @@ public class LangExpoWS {
         int imageCount = 0;
         int languageCount = 0;
         long imageId = 0;
+        int duplicateLanguageCount = 0;
         
         System.out.println("languageFlagURL: "+languageFlagURL+" \n languageName: "+languageName);
         
@@ -232,61 +240,67 @@ public class LangExpoWS {
             Class.forName("oracle.jdbc.OracleDriver");
             con = DriverManager.getConnection("jdbc:oracle:thin:@144.217.163.57:1521:XE", "A19MADTEAM5", "anypw");
             stmt = con.createStatement();
+            String sql = "SELECT * FROM LANGUAGE_ WHERE LANGUAGE_NAME = "+languageName;
+            duplicateLanguageCount = stmt.executeUpdate(sql);
             
-            //update
-            if(languageId!=0){
-                String sql = "SELECT * FROM LANGUAGE_ WHERE LANGUAGE_ID="+languageId;
-                rs = stmt.executeQuery(sql);
-                while(rs.next()){
-                    imageId = rs.getLong("FLAG_ID");
-                 }
-                 rs.close();
-                sql = "UPDATE LANGUAGE_ SET LANGUAGE_NAME = '"+languageName+"', MODIFIED_DATE=CURRENT_TIMESTAMP WHERE LANGUAGE_ID = "+languageId;
-                languageCount = stmt.executeUpdate(sql);
-                
-                if(languageCount==1){
-                    
-                    
-                    sql = "UPDATE IMAGE SET IMAGE = '"+languageFlagURL+"', MODIFIED_DATE=CURRENT_TIMESTAMP WHERE IMAGE_ID = "+imageId;
-                    imageCount = stmt.executeUpdate(sql);
-                    if (imageCount==1) {
-                        addUpdateLanguage.accumulate("status", "ok");
-                        addUpdateLanguage.accumulate("message","Language has been updated successfully.");
-                    }else {
-                        addUpdateLanguage.accumulate("status", "error");
-                        addUpdateLanguage.accumulate("message", "Language has not been added.");
-                    }
-                    
-                }
-                
-
-            } else{ //add
-                long imagePK = getPrimaryKeyforTable("IMAGE", "IMAGE_ID");
-                long languagePK = getPrimaryKeyforTable("LANGUAGE_", "LANGUAGE_ID");
-
-                String sql = "INSERT INTO A19MADTEAM5.IMAGE (IMAGE_ID, IMAGE, CREATED_DATE, MODIFIED_DATE) " +
-                        "VALUES ("+imagePK+",'"+languageFlagURL+"',CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)";
-                imageCount = stmt.executeUpdate(sql);
-
-                if (imageCount==1) {
-                    imageId = imagePK;
-                }
-
-                if(imageId!=0){
-                    sql = "INSERT INTO A19MADTEAM5.LANGUAGE_ (LANGUAGE_ID, LANGUAGE_NAME, FLAG_ID, CREATED_DATE, MODIFIED_DATE) " +
-                        "VALUES ("+languagePK+", '"+languageName+"', "+imageId+", CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)";
-
+            if(duplicateLanguageCount==0){
+                //update
+                if(languageId!=0){
+                    sql = "SELECT * FROM LANGUAGE_ WHERE LANGUAGE_ID="+languageId;
+                    rs = stmt.executeQuery(sql);
+                    while(rs.next()){
+                        imageId = rs.getLong("FLAG_ID");
+                     }
+                     rs.close();
+                    sql = "UPDATE LANGUAGE_ SET LANGUAGE_NAME = '"+languageName+"', MODIFIED_DATE=CURRENT_TIMESTAMP WHERE LANGUAGE_ID = "+languageId;
                     languageCount = stmt.executeUpdate(sql);
 
-                    if(languageCount==1) {
-                        addUpdateLanguage.accumulate("status", "ok");
-                        addUpdateLanguage.accumulate("message","Language has been added successfully.");
+                    if(languageCount==1){
+
+
+                        sql = "UPDATE IMAGE SET IMAGE = '"+languageFlagURL+"', MODIFIED_DATE=CURRENT_TIMESTAMP WHERE IMAGE_ID = "+imageId;
+                        imageCount = stmt.executeUpdate(sql);
+                        if (imageCount==1) {
+                            addUpdateLanguage.accumulate("status", "ok");
+                            addUpdateLanguage.accumulate("message","Language has been updated successfully.");
+                        }else {
+                            addUpdateLanguage.accumulate("status", "error");
+                            addUpdateLanguage.accumulate("message", "Language has not been added.");
+                        }
+
                     }
-                    else{
-                        addUpdateLanguage.accumulate("status", "error");
-                        addUpdateLanguage.accumulate("message", "Language has not been added.");
+                } else{ //add
+                    long imagePK = getPrimaryKeyforTable("IMAGE", "IMAGE_ID");
+                    long languagePK = getPrimaryKeyforTable("LANGUAGE_", "LANGUAGE_ID");
+
+                    sql = "INSERT INTO A19MADTEAM5.IMAGE (IMAGE_ID, IMAGE, CREATED_DATE, MODIFIED_DATE) " +
+                            "VALUES ("+imagePK+",'"+languageFlagURL+"',CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)";
+                    imageCount = stmt.executeUpdate(sql);
+
+                    if (imageCount==1) {
+                        imageId = imagePK;
+                    }
+
+                    if(imageId!=0){
+                        sql = "INSERT INTO A19MADTEAM5.LANGUAGE_ (LANGUAGE_ID, LANGUAGE_NAME, FLAG_ID, CREATED_DATE, MODIFIED_DATE) " +
+                            "VALUES ("+languagePK+", '"+languageName+"', "+imageId+", CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)";
+
+                        languageCount = stmt.executeUpdate(sql);
+
+                        if(languageCount==1) {
+                            addUpdateLanguage.accumulate("status", "ok");
+                            addUpdateLanguage.accumulate("message","Language has been added successfully.");
+                        }
+                        else{
+                            addUpdateLanguage.accumulate("status", "error");
+                            addUpdateLanguage.accumulate("message", "Language has not been added.");
+                        }
                     }
                 }
+            }else{
+                addUpdateLanguage.accumulate("status", "error");
+                addUpdateLanguage.accumulate("code", "LE_D_411");
+                addUpdateLanguage.accumulate("message", "Language with this name already added.");
             }
 
         }catch(SQLException e){
@@ -428,7 +442,47 @@ public class LangExpoWS {
         
         return user.toString();
     }
-   
+    
+    @GET
+    @Path("fetchLanguageId&{languageName}")
+    @Produces("application/json")
+    //@Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    public long fetchLanguageId(@PathParam("languageName") String languageName) throws SQLException, JSONException{
+        JSONObject user = new JSONObject();
+        Statement stm = null;
+        Connection con = null;
+        ResultSet rs = null;
+        long languageId = 0;
+        System.out.println("languageName: "+languageName);
+           
+            try{
+                Class.forName("oracle.jdbc.OracleDriver");
+                con = DriverManager.getConnection("jdbc:oracle:thin:@144.217.163.57:1521:XE", "a19madteam5", "anypw");
+                stm = con.createStatement();
+      
+                String sql = "select language_id from Language_ where LANGUAGE_NAME='"+languageName+"'";
+                rs = stm.executeQuery(sql);
+                
+                if(rs.next()==true){
+                    do{
+                        languageId = rs.getLong("language_id");
+                    }while(rs.next());
+                }
+                rs.close();
+                
+            }catch(SQLException e){
+                e.printStackTrace();
+                user.accumulate("status", "error");
+                user.accumulate("message", "Please check details and try again.");
+            }catch(ClassNotFoundException e){
+                e.printStackTrace();
+            }finally{
+                stm.close();
+                con.close();
+            }
+        
+        return languageId;
+    }
     
     
     @GET
@@ -437,8 +491,7 @@ public class LangExpoWS {
     //@Consumes(MediaType.APPLICATION_FORM_URLENCODED)
     public String featchAlllevel() throws SQLException, JSONException{
         JSONObject object = new JSONObject();
-        
-        
+       
         Statement stm = null;
         Connection con = null;
         ResultSet rs = null;
@@ -447,7 +500,10 @@ public class LangExpoWS {
                 Class.forName("oracle.jdbc.OracleDriver");
                 con = DriverManager.getConnection("jdbc:oracle:thin:@144.217.163.57:1521:XE", "a19madteam5", "anypw");
                 stm = con.createStatement();
-                String sql = "select * from COURSE_LEVEL order by MODIFIED_DATE DESC";
+                
+                String sql = "select LEVEL_ID, LEVEL_NAME, LEVEL_TYPE, SEQUENCE_NUMBER, COURSE_LEVEL.LANGUAGE_ID, LANGUAGE_NAME " +
+                "from COURSE_LEVEL INNER JOIN LANGUAGE_ ON COURSE_LEVEL.LANGUAGE_ID=LANGUAGE_.LANGUAGE_ID " +
+                "order by COURSE_LEVEL.MODIFIED_DATE DESC";
                 
                 rs = stm.executeQuery(sql);
                 
@@ -459,6 +515,8 @@ public class LangExpoWS {
                         level.accumulate("levelId", rs.getLong("LEVEL_ID"));
                         level.accumulate("levelName", rs.getString("LEVEL_NAME"));
                         level.accumulate("levelType", rs.getString("LEVEL_TYPE"));
+                        level.accumulate("languageId", rs.getLong("LANGUAGE_ID"));
+                        level.accumulate("languageName", rs.getString("LANGUAGE_NAME"));
                         level.accumulate("sequenceNumber", rs.getInt("SEQUENCE_NUMBER"));
                         levels.put(level);
                     } while (rs.next());
@@ -492,61 +550,81 @@ public class LangExpoWS {
     @Produces("application/json")
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
     public String addUpdateLevel(@FormParam("levelId") long levelId, @FormParam("levelNameValue") String levelNamne,
-            @FormParam("userLevelValue") String userLevel, @FormParam("sequenceNumberValue") int sequenceNumber) throws SQLException, JSONException {
+            @FormParam("userLevelValue") String userLevel, @FormParam("sequenceNumberValue") int sequenceNumber,
+            @FormParam("languageName") String languageName) throws SQLException, JSONException {
         
         JSONObject addUpdateLanguage = new JSONObject();
         Statement stmt = null;
         Connection con = null;
         ResultSet rs = null;
-        int imageCount = 0;
         int levelCount = 0;
-        long imageId = 0;
-        int duplicateCount = 0;
+        int duplicateSeqUserLevelCount = 0;
+        int duplicateLevelNameCount = 0;
+        long languageId = 0;
       
         try {
+            
+            languageId = fetchLanguageId(languageName);
             Class.forName("oracle.jdbc.OracleDriver");
             con = DriverManager.getConnection("jdbc:oracle:thin:@144.217.163.57:1521:XE", "A19MADTEAM5", "anypw");
             stmt = con.createStatement();
+            String sql;
             
-            String sql = "SELECT * FROM COURSE_LEVEL WHERE SEQUENCE_NUMBER = "+sequenceNumber+" AND LEVEL_TYPE = '"+userLevel+"'";
-            duplicateCount = stmt.executeUpdate(sql);
-            //DUPLICAT
-            if(duplicateCount==0){
+            if(levelId!=0){
+                sql = "SELECT LEVEL_NAME FROM COURSE_LEVEL WHERE LEVEL_NAME = '"+levelNamne+"' and LEVEL_ID !="+levelId;
+            }else{
+                sql = "SELECT LEVEL_NAME FROM COURSE_LEVEL WHERE LEVEL_NAME = '"+levelNamne+"'";
+            }
+            duplicateLevelNameCount = stmt.executeUpdate(sql);
             
-                //update
-                if(levelId!=0){
+            
+            if(duplicateLevelNameCount==0){
+                sql = "SELECT * FROM COURSE_LEVEL WHERE SEQUENCE_NUMBER = "+sequenceNumber+" AND LEVEL_TYPE = '"+userLevel+"'";
+                duplicateSeqUserLevelCount = stmt.executeUpdate(sql);
+                //DUPLICAT
+                if(duplicateSeqUserLevelCount==0){
 
-                    sql = "UPDATE COURSE_LEVEL SET LEVEL_NAME = '"+levelNamne+"', LEVEL_TYPE = '"+userLevel+"',"+
-                            " SEQUENCE_NUMBER = "+sequenceNumber+", MODIFIED_DATE=CURRENT_TIMESTAMP WHERE LEVEL_ID = "+levelId;
-                    levelCount = stmt.executeUpdate(sql);
+                    //update
+                    if(levelId!=0){
 
-                    if(levelCount==1){
-                        addUpdateLanguage.accumulate("status", "ok");
-                        addUpdateLanguage.accumulate("message","Level has been updated successfully.");
+                        sql = "UPDATE COURSE_LEVEL SET LEVEL_NAME = '"+levelNamne+"', LEVEL_TYPE = '"+userLevel+"',"+
+                                " SEQUENCE_NUMBER = "+sequenceNumber+", LANGUAGE_ID = "+languageId +
+                                ", MODIFIED_DATE=CURRENT_TIMESTAMP WHERE LEVEL_ID = "+levelId;
+                        levelCount = stmt.executeUpdate(sql);
+
+                        if(levelCount==1){
+                            addUpdateLanguage.accumulate("status", "ok");
+                            addUpdateLanguage.accumulate("message","Level has been updated successfully.");
+                        }
+
+
+                    } else{ //add
+                        long levelPK = getPrimaryKeyforTable("COURSE_LEVEL", "LEVEL_ID");
+
+                        sql = "INSERT INTO A19MADTEAM5.COURSE_LEVEL (LEVEL_ID, LEVEL_NAME, LEVEL_TYPE, "+
+                                "SEQUENCE_NUMBER, LANGUAGE_ID, CREATED_DATE, MODIFIED_DATE) VALUES ("+levelPK+","+
+                                "'"+levelNamne+"', '"+userLevel+"', "+sequenceNumber+", "+languageId+", "+
+                                "CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)";
+                        levelCount = stmt.executeUpdate(sql);
+
+                        if (levelCount==1) {
+                            addUpdateLanguage.accumulate("status", "ok");
+                            addUpdateLanguage.accumulate("message","Level has been added successfully.");
+                        }
+                        else{
+                            addUpdateLanguage.accumulate("status", "error");
+                            addUpdateLanguage.accumulate("message", "Level has not been added.");
+                        }
                     }
-
-
-                } else{ //add
-                    long levelPK = getPrimaryKeyforTable("COURSE_LEVEL", "LEVEL_ID");
-                    
-                    sql = "INSERT INTO A19MADTEAM5.COURSE_LEVEL (LEVEL_ID, LEVEL_NAME, LEVEL_TYPE, "+
-                            "SEQUENCE_NUMBER, CREATED_DATE, MODIFIED_DATE) VALUES ("+levelPK+", '"+levelNamne+"','"+
-                            userLevel+"', "+sequenceNumber+", CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)";
-                    levelCount = stmt.executeUpdate(sql);
-
-                    if (levelCount==1) {
-                        addUpdateLanguage.accumulate("status", "ok");
-                        addUpdateLanguage.accumulate("message","Level has been added successfully.");
-                    }
-                    else{
-                        addUpdateLanguage.accumulate("status", "error");
-                        addUpdateLanguage.accumulate("message", "Level has not been added.");
-                    }
+                }else{
+                    addUpdateLanguage.accumulate("status", "error");
+                    addUpdateLanguage.accumulate("code", "LE_D_411");
+                    addUpdateLanguage.accumulate("message", "Level with this sequence and user level already added. \n");
                 }
             }else{
                 addUpdateLanguage.accumulate("status", "error");
                 addUpdateLanguage.accumulate("code", "LE_D_411");
-                addUpdateLanguage.accumulate("message", "Please check details and try again.");
+                addUpdateLanguage.accumulate("message", "Level with this name already added. ");
             }
         }catch(SQLException e){
             e.printStackTrace();
@@ -612,6 +690,47 @@ public class LangExpoWS {
         
         return addUpdateLanguage.toString();
 
+    }
+    
+    @GET
+    @Path("fetchLevelId&{levelName}")
+    @Produces("application/json")
+    //@Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    public long fetchLevelId(@PathParam("levelName") String levelName) throws SQLException, JSONException{
+        JSONObject user = new JSONObject();
+        Statement stm = null;
+        Connection con = null;
+        ResultSet rs = null;
+        long levelId = 0;
+        System.out.println("levelName: "+levelName);
+           
+            try{
+                Class.forName("oracle.jdbc.OracleDriver");
+                con = DriverManager.getConnection("jdbc:oracle:thin:@144.217.163.57:1521:XE", "a19madteam5", "anypw");
+                stm = con.createStatement();
+      
+                String sql = "select level_id from course_level where level_name='"+levelName+"'";
+                rs = stm.executeQuery(sql);
+                
+                if(rs.next()==true){
+                    do{
+                        levelId = rs.getLong("level_id");
+                    }while(rs.next());
+                }
+                rs.close();
+                
+            }catch(SQLException e){
+                e.printStackTrace();
+                user.accumulate("status", "error");
+                user.accumulate("message", "Please check details and try again.");
+            }catch(ClassNotFoundException e){
+                e.printStackTrace();
+            }finally{
+                stm.close();
+                con.close();
+            }
+        
+        return levelId;
     }
     
     @GET
@@ -989,6 +1108,400 @@ public class LangExpoWS {
 
     }
     
-}        
+    @GET
+    @Path("featchAllLecture")
+    @Produces("application/json")
+    //@Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    public String featchAllLecture() throws SQLException, JSONException{
+        JSONObject object = new JSONObject();
+       
+        Statement stm = null;
+        Connection con = null;
+        ResultSet rs = null;
+           
+            try{
+                Class.forName("oracle.jdbc.OracleDriver");
+                con = DriverManager.getConnection("jdbc:oracle:thin:@144.217.163.57:1521:XE", "a19madteam5", "anypw");
+                stm = con.createStatement();
+                String sql = "select L.LECTURE_ID, L.lECTURE_CONTENT, L.SEQUENCE_NUMBER, L.LECTURE_NAME, L.LEVEL_ID,"
+                        + " CL.LEVEL_NAME, L.LANGUAGE_ID,LA.LANGUAGE_NAME from LECTURE L "
+                        + "INNER JOIN COURSE_LEVEL CL ON L.LEVEL_ID=CL.LEVEL_ID "
+                        + "INNER JOIN LANGUAGE_ LA ON L.LANGUAGE_ID=LA.LANGUAGE_ID "
+                        + "order by L.MODIFIED_DATE DESC";
+                rs = stm.executeQuery(sql);
+                
+                if(rs.next()==true){
+                    
+                    JSONArray lectures = new JSONArray();
+                    do {
+                        JSONObject lecture = new JSONObject();
+                        lecture.accumulate("lectureId", rs.getLong("LECTURE_ID"));
+                        lecture.accumulate("lectureContent", rs.getString("lECTURE_CONTENT"));
+                        lecture.accumulate("sequenceNumber", rs.getInt("SEQUENCE_NUMBER"));
+                        lecture.accumulate("lectureName", rs.getString("LECTURE_NAME"));
+                        lecture.accumulate("levelId", rs.getLong("LEVEL_ID"));
+                        lecture.accumulate("levelName", rs.getLong("LEVEL_NAME"));
+                        lecture.accumulate("languageId", rs.getLong("LANGUAGE_ID"));
+                        lecture.accumulate("languageName", rs.getString("LANGUAGE_NAME"));
+                        
+                        lectures.put(lecture);
+                    } while (rs.next());
+                    object.accumulate("lectures", lectures);
+                    object.accumulate("status", "ok");
+                    object.accumulate("message","Featched up successfully.");
+                }else{
+                    object.accumulate("status", "error");
+                    object.accumulate("message", "Please try again.");
+                }
+                rs.close();
+                
+            }catch(SQLException e){
+                e.printStackTrace();
+                object.accumulate("status", "error");
+                object.accumulate("message", "Please try again.");
+            }catch(ClassNotFoundException e){
+                e.printStackTrace();
+            }finally{
+                stm.close();
+                con.close();
+            }
+        return object.toString();
+    }
+    
+    @POST
+    @Path("addUpdateLecture")
+    @Produces("application/json")
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    public String addUpdateLecture(@FormParam("lectureId") long lectureId, @FormParam("lectureNameValue") String lectureName,
+            @FormParam("sequenceNumberValue") int sequenceNumber, @FormParam("languageNameValue") String languageName,
+            @FormParam("levelNameValue") String levelName, @FormParam("lectureContentValue") String lectureContent) throws SQLException, JSONException {
             
+        
+        
+        JSONObject addUpdateLanguage = new JSONObject();
+        Statement stmt = null;
+        Connection con = null;
+        ResultSet rs = null;
+        int levelCount = 0;
+        int duplicateSeqLangLevelCount = 0;
+        int duplicateLanguageNameCount = 0;
+        long languageId = 0;
+        long levelId = 0;
+       
+        try {
+            
+            languageId = fetchLanguageId(languageName);
+            levelId = fetchLevelId(levelName);
+            Class.forName("oracle.jdbc.OracleDriver");
+            con = DriverManager.getConnection("jdbc:oracle:thin:@144.217.163.57:1521:XE", "A19MADTEAM5", "anypw");
+            stmt = con.createStatement();
+            String sql;
+            
+            if(lectureId!=0){
+                sql = "SELECT LECTURE_NAME FROM LECTURE WHERE LECTURE_NAME = '"+lectureName+"' and LECTURE_ID !="+lectureId;
+            }else{
+                sql = "SELECT LECTURE_NAME FROM LECTURE WHERE LECTURE_NAME = '"+lectureName+"'";
+            }
+            duplicateLanguageNameCount = stmt.executeUpdate(sql);
+            
+            
+            if(duplicateLanguageNameCount==0){
+                sql = "SELECT * FROM LECTURE WHERE SEQUENCE_NUMBER = "+sequenceNumber+" AND LANGUAGE_ID = '"+languageId+"' AND LEVEL_ID = '"+levelId+"'";
+                duplicateSeqLangLevelCount = stmt.executeUpdate(sql);
+                //DUPLICAT
+                if(duplicateSeqLangLevelCount==0){
+
+                    //update
+                    if(lectureId!=0){
+
+                        sql = "UPDATE LECTURE SET LECTURE_NAME = '"+lectureName+"',"+
+                                " LEVEL_ID = '"+levelId+"', LECTURE_CONTENT = '"+lectureContent +"'"+
+                                ", SEQUENCE_NUMBER = "+sequenceNumber+", LANGUAGE_ID = "+languageId +
+                                ", MODIFIED_DATE=CURRENT_TIMESTAMP WHERE LECTURE_ID = "+lectureId;
+                        levelCount = stmt.executeUpdate(sql);
+
+                        if(levelCount==1){
+                            addUpdateLanguage.accumulate("status", "ok");
+                            addUpdateLanguage.accumulate("message","Lecture has been updated successfully.");
+                        }
+
+                    } else{ //add
+                        long languagePK = getPrimaryKeyforTable("LECTURE", "LECTURE_ID");
+
+                        sql = "INSERT INTO A19MADTEAM5.LECTURE (LECTURE_ID, LECTURE_NAME, LEVEL_ID, LECTURE_CONTENT, "+
+                                "SEQUENCE_NUMBER, LANGUAGE_ID, CREATED_DATE, MODIFIED_DATE) VALUES ("+languagePK+","+
+                                "'"+lectureName+"', "+levelId+", '"+lectureContent+"', "+sequenceNumber+", "+languageId+","+
+                                "CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)";
+                        levelCount = stmt.executeUpdate(sql);
+
+                        if (levelCount==1) {
+                            addUpdateLanguage.accumulate("status", "ok");
+                            addUpdateLanguage.accumulate("message","Lecture has been added successfully.");
+                        }
+                        else{
+                            addUpdateLanguage.accumulate("status", "error");
+                            addUpdateLanguage.accumulate("message", "Lecture has not been added.");
+                        }
+                    }
+                }else{
+                    addUpdateLanguage.accumulate("status", "error");
+                    addUpdateLanguage.accumulate("code", "LE_D_411");
+                    addUpdateLanguage.accumulate("message", "Lecture with this sequence and Language and Level already added. \n");
+                }
+            }else{
+                addUpdateLanguage.accumulate("status", "error");
+                addUpdateLanguage.accumulate("code", "LE_D_411");
+                addUpdateLanguage.accumulate("message", "Lecture with this name already added. ");
+            }
+        }catch(SQLException e){
+            e.printStackTrace();
+            addUpdateLanguage.accumulate("status", "error");
+            addUpdateLanguage.accumulate("message", "Please check details and try again.");
+        }catch(ClassNotFoundException e){
+            Logger.getLogger(LangExpoWS.class.getName()).log(Level.SEVERE, null, e);
+        }finally{
+            stmt.close();
+            con.close();
+        }
+        
+        return addUpdateLanguage.toString();
+        
+        
+    }
    
+    @POST
+    @Path("deleteLecture")
+    @Produces("application/json")
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    public String deleteLecture(@FormParam("lectureId") long lectureId) throws SQLException, JSONException {
+        
+        JSONObject addUpdateLecture = new JSONObject();
+        Statement stmt = null;
+        Connection con = null;
+        ResultSet rs = null;
+        int lectureCount = 0;
+        
+        try {
+            Class.forName("oracle.jdbc.OracleDriver");
+            con = DriverManager.getConnection("jdbc:oracle:thin:@144.217.163.57:1521:XE", "A19MADTEAM5", "anypw");
+            stmt = con.createStatement();
+            
+            if(lectureId!=0){
+                try{
+                    String sql = "DELETE FROM LECTURE WHERE LEVEL_ID="+lectureId;
+                    lectureCount = stmt.executeUpdate(sql);
+
+                    if(lectureCount==1){
+                        addUpdateLecture.accumulate("status", "ok");
+                        addUpdateLecture.accumulate("message","Lecture has been deleted successfully.");
+                    }else if(lectureCount==0){
+                        addUpdateLecture.accumulate("status", "ok");
+                        addUpdateLecture.accumulate("code", "LE_D_411");
+                        addUpdateLecture.accumulate("message","Lecture is deleted already.");
+                    }
+                }catch(SQLIntegrityConstraintViolationException e){
+                    addUpdateLecture.accumulate("status", "error");
+                    addUpdateLecture.accumulate("message", "Lecture is in use, you can't delete it.");
+                }
+            } else{ //add
+                addUpdateLecture.accumulate("status", "error");
+                addUpdateLecture.accumulate("message", "You have not selected Lecture to delete.");
+            }
+
+        }catch(SQLException e){
+            e.printStackTrace();
+            addUpdateLecture.accumulate("status", "error");
+            addUpdateLecture.accumulate("message", "Please check details and try again.");
+        }catch(ClassNotFoundException e){
+            Logger.getLogger(LangExpoWS.class.getName()).log(Level.SEVERE, null, e);
+        }finally{
+            stmt.close();
+            con.close();
+        }
+        
+        return addUpdateLecture.toString();
+
+    }
+    
+    
+    //favorit start
+    @GET
+    @Path("featchAllFavoriteByUser&{userId}")
+    @Produces("application/json")
+    //@Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    public String featchAllFavorite(@PathParam("userId") String userId) throws SQLException, JSONException{
+        JSONObject object = new JSONObject();
+       
+        Statement stm = null;
+        Connection con = null;
+        ResultSet rs = null;
+           
+            try{
+                Class.forName("oracle.jdbc.OracleDriver");
+                con = DriverManager.getConnection("jdbc:oracle:thin:@144.217.163.57:1521:XE", "a19madteam5", "anypw");
+                stm = con.createStatement();
+                
+                String sql ="SELECT * FROM FAVORITE WHERE USER_ID="+userId;
+                
+                rs = stm.executeQuery(sql);
+                
+                if(rs.next()==true){
+                    
+                    JSONArray favorites = new JSONArray();
+                    do {
+                        JSONObject favotite = new JSONObject();
+                        favotite.accumulate("favoriteId", rs.getLong("FAVORITE_ID"));
+                        favotite.accumulate("userId", rs.getLong("USER_ID"));
+                        favotite.accumulate("lectureId", rs.getLong("LECTURE_ID"));
+                        favotite.accumulate("questionId", rs.getLong("QUESTION_ID"));
+                        favotite.accumulate("word", rs.getString("WORD"));
+                        favotite.accumulate("wordLink", (rs.getString("WORD_LINK")==null)? "":rs.getString("WORD_LINK"));
+                        favotite.accumulate("resultWord", rs.getString("RESULT_WORD"));
+                        
+                        
+                        favorites.put(favotite);
+                    } while (rs.next());
+                    object.accumulate("favorites", favorites);
+                    object.accumulate("status", "ok");
+                    object.accumulate("message","Featched up successfully.");
+                }else{
+                    object.accumulate("status", "error");
+                    object.accumulate("message", "Please try again.");
+                }
+                rs.close();
+                
+            }catch(SQLException e){
+                e.printStackTrace();
+                object.accumulate("status", "error");
+                object.accumulate("message", "Please try again.");
+            }catch(ClassNotFoundException e){
+                e.printStackTrace();
+            }finally{
+                stm.close();
+                con.close();
+            }
+        return object.toString();
+    }
+    
+    @POST
+    @Path("markFavorite")
+    @Produces("application/json")
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    public String markFavorite(@FormParam("userId") long userId, @FormParam("favorite") boolean favorite,
+            @FormParam("searchWord") String searchWord, @FormParam("resultWord") String resultWord) throws SQLException, JSONException {
+            
+        
+        
+        JSONObject addUpdateLanguage = new JSONObject();
+        Statement stmt = null;
+        Connection con = null;
+        long favoriteCount = 0;
+       
+        try {
+            
+            Class.forName("oracle.jdbc.OracleDriver");
+            con = DriverManager.getConnection("jdbc:oracle:thin:@144.217.163.57:1521:XE", "A19MADTEAM5", "anypw");
+            stmt = con.createStatement();
+            String sql;
+            
+            //
+            if(userId!=0){
+                
+                //delete
+                if(!favorite){
+
+                    sql = "SELECT * FROM FAVORITE WHERE USER_ID="+userId+" AND WORD='"+searchWord+"'";
+                    favoriteCount = stmt.executeUpdate(sql);
+                    if(favoriteCount==1){
+                        sql = "DELETE from FAVORITE where USER_ID="+userId+" AND WORD='"+searchWord+"'";
+                        favoriteCount = stmt.executeUpdate(sql);
+                        if(favoriteCount==1){
+                            addUpdateLanguage.accumulate("status", "ok");
+                            addUpdateLanguage.accumulate("message","Unfavorite successfully.");
+                        }
+                    }
+
+                } else{ //add
+                    
+                    sql = "select * from favorite where user_id="+userId+" and word='"+searchWord+"'";
+                    favoriteCount = stmt.executeUpdate(sql);
+                    if(favoriteCount==1){
+                        addUpdateLanguage.accumulate("status", "ok");
+                        addUpdateLanguage.accumulate("message","This word already favorite in you list.");
+                    }else{
+                        long favoritePK = getPrimaryKeyforTable("FAVORITE", "FAVORITE_ID");
+
+                        sql = "INSERT INTO A19MADTEAM5.FAVORITE (FAVORITE_ID, USER_ID, WORD, RESULT_WORD, "+
+                                " CREATED_DATE, MODIFIED_DATE) VALUES ("+favoritePK+","+
+                                +userId+", '"+searchWord+"', '"+resultWord+"', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)";
+                        favoriteCount = stmt.executeUpdate(sql);
+
+                        if (favoriteCount==1) {
+                            addUpdateLanguage.accumulate("status", "ok");
+                            addUpdateLanguage.accumulate("message","Favorited successfully.");
+                        }
+                        else{
+                            addUpdateLanguage.accumulate("status", "error");
+                            addUpdateLanguage.accumulate("message", "Lecture has not been added.");
+                        }
+                    }
+                }
+            }else{
+                addUpdateLanguage.accumulate("status", "error");
+                addUpdateLanguage.accumulate("code", "LE_D_411");
+                addUpdateLanguage.accumulate("message", "Login is required to make favorite.\n");
+            }
+            
+        }catch(SQLException e){
+            e.printStackTrace();
+            addUpdateLanguage.accumulate("status", "error");
+            addUpdateLanguage.accumulate("message", "Please check details and try again.");
+        }catch(ClassNotFoundException e){
+            Logger.getLogger(LangExpoWS.class.getName()).log(Level.SEVERE, null, e);
+        }finally{
+            stmt.close();
+            con.close();
+        }
+        
+        return addUpdateLanguage.toString();
+        
+        
+    }
+    //favorit end
+    
+    /*public String addUpdateLecture(long id) throws SQLException{
+        String a="";
+        Statement stmt = null;
+        Connection con = null;
+        ResultSet rs = null;
+        Clob blobData = null;
+        byte[] bdata;
+        
+        
+        try {
+            Class.forName("oracle.jdbc.OracleDriver");
+            con = DriverManager.getConnection("jdbc:oracle:thin:@144.217.163.57:1521:XE", "A19MADTEAM5", "anypw");
+            stmt = con.createStatement();
+            String sql = "select * from LECTURE where LECTURE_ID=1";
+            rs = stmt.executeQuery(sql);
+            
+            if(rs.next()==true){
+                do{
+                    blobData = rs.getClob("LECTURE_CONTENT");
+                    a = blobData.toString();
+                }while(rs.next());
+            }
+            rs.close();
+        }catch(SQLException e){
+            e.printStackTrace();
+            
+        }catch(ClassNotFoundException e){
+            Logger.getLogger(LangExpoWS.class.getName()).log(Level.SEVERE, null, e);
+        }finally{
+            stmt.close();
+            con.close();
+        }
+      return a;
+    }*/
+    
+}
